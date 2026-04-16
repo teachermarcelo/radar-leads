@@ -69,10 +69,12 @@
         const SUPABASE_URL = 'https://rvgcniaowzmsudzliozf.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2Z2NuaWFvd3ptc3Vkemxpb3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MjQxNzQsImV4cCI6MjA5MTQwMDE3NH0.uwwKFLuK-XyPoXPrB6_CseRTiD9d-iyMQSPWrFw-l-I';
         
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // ✅ CORREÇÃO: Nome diferente da variável (supabaseClient)
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         async function loadLeads() {
-            const { data, error } = await supabase
+            // ✅ CORREÇÃO: Usando supabaseClient
+            const { data, error } = await supabaseClient
                 .from('leads')
                 .select('*')
                 .order('intent_score', { ascending: false })
@@ -135,7 +137,8 @@
         }
 
         async function updateStatus(leadId, newStatus) {
-            const { error } = await supabase
+            // ✅ CORREÇÃO: Usando supabaseClient
+            const { error } = await supabaseClient
                 .from('leads')
                 .update({ 
                     status: newStatus,
@@ -146,7 +149,7 @@
             if (error) {
                 alert('Erro ao atualizar: ' + error.message);
             } else {
-                loadLeads(); // Recarrega para atualizar stats
+                loadLeads();
             }
         }
 
