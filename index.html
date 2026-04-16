@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar de Leads</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #1a1a1a; margin-bottom: 20px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 32px; font-weight: bold; color: #2563eb; }
+        .stat-label { color: #666; font-size: 14px; }
+        .leads-grid { display: grid; gap: 15px; }
+        .lead-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #2563eb; }
+        .lead-card.score-high { border-left-color: #10b981; }
+        .lead-card.score-medium { border-left-color: #f59e0b; }
+        .lead-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; }
+        .lead-score { background: #2563eb; color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; }
+        .lead-platform { background: #e5e7eb; padding: 4px 8px; border-radius: 4px; font-size: 12px; text-transform: uppercase; }
+        .lead-text { color: #374151; margin: 10px 0; line-height: 1.5; }
+        .lead-meta { display: flex; gap: 15px; font-size: 13px; color: #6b7280; margin-bottom: 15px; }
+        .lead-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+        select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; }
+        .loading { text-align: center; padding: 40px; color: #6b7280; }
+        a { color: #2563eb; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Radar de Leads</h1>
+        
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="total-leads">-</div>
+                <div class="stat-label">Total de Leads</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="high-score">-</div>
+                <div class="stat-label">Score Alto (70+)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="new-leads">-</div>
+                <div class="stat-label">Novos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="contacted">-</div>
+                <div class="stat-label">Contatados</div>
+            </div>
+        </div>
+
+        <div id="leads-container" class="leads-grid">
+            <div class="loading">Carregando leads...</div>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ SUBSTITUA PELAS SUAS CREDENCIAIS DO SUPABASE
+        const SUPABASE_URL = 'https://SEU_PROJETO.supabase.co';
+        const SUPABASE_ANON_KEY = 'SUA_CHAVE_ANON_AQUI';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function loadLeads() {
+            const { data, error } = await supabase
+                .from('leads')
+                .select('*')
+                .order('intent_score', { ascending: false })
+                .limit(50);
+
+            if (error) {
+                document.getElementById('leads-container').innerHTML = 
+                    `<div class="loading" style="color: red;">Erro: ${error.message}</div>`;
+                return;
+            }
+
+            updateStats(data);
+            renderLeads(data);
+        }
+
+        function updateStats(leads) {
+            document.getElementById('total-leads').textContent = leads.length;
+            document.getElementById('high-score').textContent = leads.filter(l => l.intent_score >= 70).length;
+            document.getElementById('new-leads').textContent = leads.filter(l => l.status === 'novo').length;
+            document.getElementById('contacted').textContent = leads.filter(l => l.status === 'contatado').length;
+        }
+
+        function renderLeads(leads) {
+            const container = document.getElementById('leads-container');
+            
+            if (leads.length === 0) {
+                container.innerHTML = '<div class="loading">Nenhum lead encontrado. Rode o collector.py primeiro!</div>';
+                return;
+            }
+
+            container.innerHTML = leads.map(lead => {
+                const scoreClass = lead.intent_score >= 70 ? 'score-high' : lead.intent_score >= 40 ? 'score-medium' : '';
+                const date = new Date(lead.created_at).toLocaleString('pt-BR');
+                
+                return `
+                    <div class="lead-card ${scoreClass}">
+                        <div class="lead-header">
+                            <span class="lead-score">${lead.intent_score}</span>
+                            <span class="lead-platform">${lead.platform}</span>
+                        </div>
+                        <div class="lead-text">${lead.raw_text || 'Sem texto'}</div>
+                        <div class="lead-meta">
+                            <span>👤 ${lead.author || 'Anônimo'}</span>
+                            <span>📅 ${date}</span>
+                        </div>
+                        <div class="lead-actions">
+                            <a href="${lead.post_url}" target="_blank" class="btn-primary">Ver Post</a>
+                            <select onchange="updateStatus('${lead.id}', this.value)" class="btn-secondary">
+                                <option value="novo" ${lead.status === 'novo' ? 'selected' : ''}>Novo</option>
+                                <option value="contatado" ${lead.status === 'contatado' ? 'selected' : ''}>Contatado</option>
+                                <option value="respondeu" ${lead.status === 'respondeu' ? 'selected' : ''}>Respondeu</option>
+                                <option value="agendou" ${lead.status === 'agendou' ? 'selected' : ''}>Agendou</option>
+                                <option value="fechado" ${lead.status === 'fechado' ? 'selected' : ''}>Fechado</option>
+                                <option value="ignorado" ${lead.status === 'ignorado' ? 'selected' : ''}>Ignorado</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function updateStatus(leadId, newStatus) {
+            const { error } = await supabase
+                .from('leads')
+                .update({ 
+                    status: newStatus,
+                    contacted_at: newStatus === 'contatado' ? new Date().toISOString() : null
+                })
+                .eq('id', leadId);
+
+            if (error) {
+                alert('Erro ao atualizar: ' + error.message);
+            } else {
+                loadLeads(); // Recarrega para atualizar stats
+            }
+        }
+
+        // Carrega ao iniciar
+        loadLeads();
+    </script>
+</body>
+</html>
