@@ -106,14 +106,22 @@ def main():
         ("empreendedores", "preciso de"),
         ("empreendedores", "indicação"),
         ("freelanceBR", "procurando"),
-        ("marketingdigital", "preciso de"),
+        # Removido marketingdigital (bloqueado)
     ]
     
     todos_leads = []
+    urls_vistas = set()  # ✅ Evita duplicatas na mesma execução
+    
     for sub, termo in buscas:
         print(f"\n📌 Buscando em r/{sub}: '{termo}'")
         leads = buscar_reddit(sub, termo)
-        todos_leads += leads
+        
+        for lead in leads:
+            # ✅ Só adiciona se a URL ainda não foi vista
+            if lead["post_url"] not in urls_vistas:
+                urls_vistas.add(lead["post_url"])
+                todos_leads.append(lead)
+        
         print(f"  → {len(leads)} leads encontrados")
     
     if not todos_leads:
@@ -121,7 +129,7 @@ def main():
         print("💡 Dica: Tente rodar novamente mais tarde ou ajuste os subreddits.")
         return
 
-    print(f"\n💾 Salvando {len(todos_leads)} leads no Supabase...")
+    print(f"\n💾 Salvando {len(todos_leads)} leads únicos no Supabase...")
     salvos = salvar_no_supabase(todos_leads)
     
     print("\n" + "=" * 60)
